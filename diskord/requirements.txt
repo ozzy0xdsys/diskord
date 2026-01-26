@@ -1,6 +1,0 @@
-Flask
-Flask-SocketIO
-SQLAlchemy
-itsdangerous
-bcrypt
-simple-websocket
