@@ -1,0 +1,116 @@
+<!doctype html>
+<html><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diskord</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head><body>
+<div class="container">
+  <div class="side">
+    <div class="card">
+      <h2>Diskord</h2>
+      <div class="small">A Discord alternative that values your privacy</div>
+      <div class="small" style="margin-top:8px">Signed in as <b>{{ username }}</b></div>
+      <form method="post" action="/logout" style="margin-top:10px"><button type="submit" style="width:100%">Logout</button></form>
+    </div>
+
+    <div class="card">
+      <div class="small">Add friend</div>
+      <form method="post" action="/friends/request" style="display:flex;gap:8px;margin-top:8px">
+        <input name="username" placeholder="username" style="flex:1" required>
+        <button class="primary" type="submit">Send</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="small">Friend requests</div>
+      <div class="list" id="pendingList" style="margin-top:8px">
+        {% for p in pending %}
+          <div style="display:flex;gap:6px;align-items:center">
+            <div style="flex:1">{{ p.from_username }}</div>
+            <form method="post" action="/friends/accept">
+              <input type="hidden" name="req_id" value="{{ p.id }}">
+              <button class="primary" type="submit">Accept</button>
+            </form>
+            <form method="post" action="/friends/ignore">
+              <input type="hidden" name="req_id" value="{{ p.id }}">
+              <button type="submit">Ignore</button>
+            </form>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="small">Friends</div>
+      <div class="list" id="friendsList" style="margin-top:8px">
+        {% for f in friends %}
+          <div style="display:flex;gap:6px;align-items:center">
+            <form method="post" action="/dm/start" style="flex:1">
+              <input type="hidden" name="friend_id" value="{{ f.id }}">
+              <button class="item" type="submit">{{ f.username }}</button>
+            </form>
+            <form method="post" action="/friends/remove">
+              <input type="hidden" name="friend_id" value="{{ f.id }}">
+              <button type="submit">Remove</button>
+            </form>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="small" style="margin-top:10px">Create group</div>
+      <div class="small">Name + comma-separated friend usernames</div>
+      <form id="groupCreate" method="post" action="/groups/create" style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
+        <input name="name" placeholder="Group name (optional)">
+        <input name="member_ids" id="groupMemberIds" placeholder="Friend IDs (auto)" hidden>
+        <input id="groupFriends" placeholder="friend1, friend2">
+        <button class="primary" type="submit">Create</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="small">Chats</div>
+      <div class="list" id="chatList" style="margin-top:8px">
+        {% for c in convos %}
+          <button class="item {% if c.id==selected_id %}active{% endif %}" data-cid="{{ c.id }}" data-type="{{ c.type }}" data-owner="{{ c.owner_id or '' }}">{{ c.name }}</button>
+        {% endfor %}
+      </div>
+      <div class="small" style="margin-top:10px">Group actions</div>
+      <button id="inviteBtn" type="button" style="width:100%;margin-top:6px">Invite friends to this group</button>
+      <button id="leaveBtn" type="button" style="width:100%;margin-top:6px">Leave group</button>
+      <button id="kickBtn" type="button" style="width:100%;margin-top:6px">Kick member (owner only)</button>
+    </div>
+
+    <div class="card">
+      <a href="/privacy">Privacy policy</a>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div id="topTitle">Chat</div>
+      <div class="small" id="connState">Connecting…</div>
+    </div>
+
+    <div id="messages"></div>
+
+    <div class="composer">
+      <button id="attachBtn" type="button">Attach</button>
+      <input id="file" type="file" hidden>
+      <div class="filechip" id="fileChip">No file selected</div>
+      <textarea id="text" placeholder="Message…"></textarea>
+      <button class="primary" id="send" type="button">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+window.DISKORD = {
+  username: {{ username|tojson }},
+  user_id: {{ user_id|tojson }},
+  convos: {{ convos|tojson }},
+  selected_id: {{ selected_id|tojson }},
+  initial_messages: {{ initial_messages|tojson }}
+}
+</script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body></html>
