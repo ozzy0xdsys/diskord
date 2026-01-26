@@ -1,0 +1,142 @@
+<!doctype html>
+<html><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Diskord</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="side-head">Diskord <a href="/profile" class="small" style="float:right">Profile</a></div>
+    <div class="side-sec">
+      <div class="small">Friends</div>
+      <div class="list" style="max-height:22vh">
+        {% for f in friends_list %}
+        <form method="post" action="{{ url_for('friends_remove') }}" class="inline" style="align-items:center">
+          <input type="hidden" name="csrf" value="{{ csrf }}"/>
+          <input type="hidden" name="friend_id" value="{{ f.id }}"/>
+          <div class="avatar">{% if f.avatar_url %}<img src="{{ f.avatar_url }}" alt=""/>{% else %}<span>{{ f.username[0].upper() }}</span>{% endif %}</div>
+          <input value="{{ f.username }}" disabled/>
+          <button class="btn" type="submit">Remove</button>
+        </form>
+        {% endfor %}
+      </div>
+    </div>
+
+
+    <div class="side-sec">
+      <div class="small">Add friend</div>
+      <form method="post" action="{{ url_for('friends_add') }}" class="inline">
+        <input type="hidden" name="csrf" value="{{ csrf }}"/>
+        <input name="username" placeholder="username" maxlength="24"/>
+        <button class="btn" type="submit">Add</button>
+      </form>
+
+      {% if pending|length %}
+      <div class="small" style="margin-top:10px">Requests</div>
+      {% for p in pending %}
+      <form method="post" action="{{ url_for('friends_accept') }}" class="inline" style="margin-top:6px">
+        <input type="hidden" name="csrf" value="{{ csrf }}"/>
+        <input type="hidden" name="req_id" value="{{ p.id }}"/>
+        <input value="{{ p.from_username }}" disabled/>
+        <button class="btn primary" type="submit">Accept</button>
+        </form>
+      <form method="post" action="{{ url_for('friends_ignore') }}" class="inline" style="margin-top:6px">
+        <input type="hidden" name="csrf" value="{{ csrf }}"/>
+        <input type="hidden" name="req_id" value="{{ p.id }}"/>
+        <input value="{{ p.from_username }}" disabled/>
+        <button class="btn" type="submit">Ignore</button>
+      {% endfor %}
+      {% endif %}
+    </div>
+
+    <div class="side-sec">
+      <div class="small">Chats</div>
+      <button id="newGroupBtn" class="btn" type="button" style="width:100%;margin:0 0 10px">New group</button>
+      <button id="newAnnBtn" class="btn" type="button" style="width:100%;margin:0 0 10px">New announcement</button>
+      <div id="chatList" class="list" style="flex:1">
+        {% for c in convos %}
+        <button class="item {% if selected_id == c.id %}active{% endif %}" data-cid="{{ c.id }}">{{ c.name }}</button>
+        {% endfor %}
+      </div>
+      {% if convos|length == 0 %}<div class="small" style="margin-top:10px">No chats yet.</div>{% endif %}
+    </div>
+
+    <div class="side-sec" style="margin-top:auto">
+      <div style="display:flex;align-items:center;gap:10px">
+  <div class="avatar">{% if avatar_url %}<img src="{{ avatar_url }}" alt="avatar"/>{% else %}<span>{{ username[0].upper() }}</span>{% endif %}</div>
+  <div class="small">Signed in as <b>{{ username }}</b></div>
+</div>
+      <form method="post" action="{{ url_for('logout_post') }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}"/>
+        <button class="btn" type="submit" style="width:100%;margin:0">Logout</button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="top">
+      <div id="topTitle">{% if selected_name %}{{ selected_name }}{% else %}No chat selected{% endif %}</div>
+      <div style="display:flex;gap:8px;align-items:center">
+  <button id="callBtn" class="btn" type="button" style="width:auto;margin:0;display:none">🎙️ Call</button>
+  <div id="connState" class="small">Connecting…</div>
+</div>
+    </div>
+
+    <div id="messages" class="msgs">
+      {% for m in messages %}
+      <div class="msg" data-user="{{ m.username }}">
+        <div class="meta"><div class="avatar">{% if m.avatar_url %}<img src="{{ m.avatar_url }}" alt=""/>{% else %}<span>{{ m.username[0].upper() }}</span>{% endif %}</div><b>{{ m.username }}</b> · <span data-iso="{{ m.created_at }}" class="t"></span></div>
+        <div>{{ m.content }}</div>
+        {% if m.has_attachment %}
+        <div class="small"><a href="/files/{{ m.id }}">Download: {{ m.attachment_name }}</a></div>
+        {% endif %}
+      </div>
+      {% endfor %}
+      {% if selected_id is none %}<div class="small">Add a friend to start chatting.</div>{% endif %}
+    </div>
+
+    <div class="compose">
+      <input id="file" type="file" class="file-hidden" />
+      <label for="file" class="btn attach" id="attachBtn" title="Attach a file">📎 Attach</label>
+      <div class="file-chip" id="fileChip" hidden></div>
+      <input id="text" placeholder="Message…" maxlength="4000" autocomplete="off" {% if selected_id is none %}disabled{% endif %}/>
+      <button id="send" class="btn primary send" {% if selected_id is none %}disabled{% endif %}>Send</button>
+    </div>
+  </main>
+</div>
+
+<div id="modal" class="modal hidden">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <b id="modalTitle">New group</b>
+      <button id="closeModal" class="btn" type="button" style="width:auto;margin:0">Close</button>
+    </div>
+    <p>Pick friends to add. Group name is random.</p>
+    <div id="friendPicks"></div>
+    <form method="post" action="{{ url_for('groups_create') }}" id="groupCreateForm" class="inline" style="margin-top:10px">
+      <input type="hidden" name="csrf" value="{{ csrf }}"/>
+      <input type="hidden" name="member_ids" id="member_ids" value=""/>
+      <button class="btn primary" type="submit" style="width:100%">Create group</button>
+    </form>
+    <form method="post" action="{{ url_for('announcements_create') }}" class="inline" style="margin-top:10px" id="annCreateForm">
+      <input type="hidden" name="csrf" value="{{ csrf }}"/>
+      <input type="hidden" name="member_ids" id="ann_member_ids" value=""/>
+      <button class="btn primary" type="submit" style="width:100%">Create announcement</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  window.PYCORD = {
+    session: "{{ session }}",
+    username: "{{ username }}",
+    friends: {{ friends|tojson }},
+    selectedId: {{ selected_id|tojson }},
+    convos: {{ convos|tojson }},
+    csrf: "{{ csrf }}"
+  };
+</script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body></html>
