@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Diskord</title>
+  <link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body>
+  <div class="container">
+    <div class="card" style="padding:18px;">
+      <div class="brand" style="margin-bottom:10px;">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <strong>Diskord</strong><br/>
+          <small>Simple sessions • Real-time • Private by design</small>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <h1>Log in</h1>
+          <small>Welcome back.</small>
+          <div class="notice hidden" id="loginErr"></div>
+
+          <label>Username</label>
+          <input id="lUser" autocomplete="username" placeholder="yourname"/>
+
+          <label>Password</label>
+          <input id="lPass" type="password" autocomplete="current-password" placeholder="••••••••"/>
+
+          <div style="margin-top:12px;">
+            <button id="loginBtn">Log in</button>
+          </div>
+        </div>
+
+        <div class="col">
+          <h1>Register</h1>
+          <small>Create an account. (E2EE is used for chat content.)</small>
+
+          <div class="notice">
+            <small>
+              Messages and files are encrypted in your browser before they are sent.
+              Learn more in the <a href="/privacy">privacy policy</a>.
+            </small>
+          </div>
+
+          <div class="notice hidden" id="regErr"></div>
+
+          <label>Username</label>
+          <input id="rUser" autocomplete="username" placeholder="pick a name"/>
+
+          <label>Password</label>
+          <input id="rPass" type="password" autocomplete="new-password" placeholder="min 8 characters"/>
+
+          <div style="margin-top:12px;">
+            <button id="regBtn">Create account</button>
+          </div>
+        </div>
+      </div>
+
+      <hr/>
+      <small>Tip: After login, create a session to get a code, or join someone else’s code.</small>
+    </div>
+  </div>
+
+<script>
+const api = async (path, body) => {
+  const r = await fetch(path, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify(body || {})
+  });
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.error || "Request failed");
+  return j;
+};
+function setErr(el, msg){
+  el.textContent = msg;
+  el.classList.remove("hidden");
+  el.classList.toggle("error", true);
+}
+function clearErr(el){
+  el.classList.add("hidden");
+  el.textContent = "";
+}
+async function go(token){
+  localStorage.setItem("diskord_token", token);
+  location.href = "/app";
+}
+document.getElementById("loginBtn").onclick = async () => {
+  const err = document.getElementById("loginErr");
+  clearErr(err);
+  try{
+    const username = document.getElementById("lUser").value;
+    const password = document.getElementById("lPass").value;
+    const { token } = await api("/api/login", { username, password });
+    await go(token);
+  }catch(e){ setErr(err, e.message); }
+};
+document.getElementById("regBtn").onclick = async () => {
+  const err = document.getElementById("regErr");
+  clearErr(err);
+  try{
+    const username = document.getElementById("rUser").value;
+    const password = document.getElementById("rPass").value;
+    const { token } = await api("/api/register", { username, password });
+    await go(token);
+  }catch(e){ setErr(err, e.message); }
+};
+if(localStorage.getItem("diskord_token")) location.href="/app";
+</script>
+</body>
+</html>
