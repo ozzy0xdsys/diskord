@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Diskord • Log in</title>
+  <link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body>
+  <div class="container">
+    <div class="card" style="padding:18px; max-width:520px;">
+      <div class="brand" style="margin-bottom:10px;">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <strong>Diskord</strong><br/>
+          <small>Real-time sessions • Private by design</small>
+        </div>
+      </div>
+
+      <h1 style="margin-top:8px;">Log in</h1>
+      <small class="muted">Welcome back.</small>
+
+      <div class="notice hidden" id="loginErr" style="margin-top:10px;"></div>
+
+      <label>Username</label>
+      <input id="lUser" autocomplete="username" placeholder="yourname"/>
+
+      <label>Password</label>
+      <input id="lPass" type="password" autocomplete="current-password" placeholder="••••••••"/>
+
+      <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+        <button id="loginBtn">Log in</button>
+        <a class="muted" href="/register" style="text-decoration:none;">Need an account? Register</a>
+      </div>
+
+      <div style="margin-top:14px;">
+        <small class="muted"><a href="/privacy">Privacy policy</a></small>
+      </div>
+    </div>
+  </div>
+
+<script>
+const api = async (path, body) => {
+  const r = await fetch(path, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify(body || {})
+  });
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.error || "Request failed");
+  return j;
+};
+function setErr(el, msg){
+  el.textContent = msg;
+  el.classList.remove("hidden");
+  el.classList.toggle("error", true);
+}
+function clearErr(el){
+  el.classList.add("hidden");
+  el.textContent = "";
+}
+async function go(token){
+  localStorage.setItem("diskord_token", token);
+  location.href = "/app";
+}
+document.getElementById("loginBtn").onclick = async () => {
+  const err = document.getElementById("loginErr");
+  clearErr(err);
+  try{
+    const username = document.getElementById("lUser").value;
+    const password = document.getElementById("lPass").value;
+    const { token } = await api("/api/login", { username, password });
+    await go(token);
+  }catch(e){ setErr(err, e.message); }
+};
+if(localStorage.getItem("diskord_token")) location.href="/app";
+</script>
+</body>
+</html>
